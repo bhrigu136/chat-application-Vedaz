@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,21 +6,52 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import { useChat } from '../hooks/useChat';
+import { useTyping } from '../hooks/useTyping';
+import { usePresence } from '../hooks/usePresence';
 import MessageBubble from '../components/MessageBubble';
 import MessageInput from '../components/MessageInput';
+import TypingIndicator from '../components/TypingIndicator';
+import OnlineStatusBar from '../components/OnlineStatusBar';
 
 const ChatScreen = ({ route }) => {
   const { username } = route.params;
-  const { messages, isConnected, sendMessage } = useChat(username);
+
+  // "Active" = this screen is focused AND the app is in the foreground.
+  // Read receipts are only sent while active.
+  const isFocused = useIsFocused();
+  const [isForeground, setIsForeground] = useState(true);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      setIsForeground(state === 'active');
+    });
+    return () => sub.remove();
+  }, []);
+  const isActive = isFocused && isForeground;
+
+  const { messages, isConnected, sendMessage } = useChat(username, isActive);
+  const { typingUsers, notifyTyping, stopTyping } = useTyping();
+  const { onlineUsers } = usePresence();
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef(null);
+
+  const handleChangeText = (text) => {
+    setInputText(text);
+    if (text.trim()) {
+      notifyTyping();
+    } else {
+      stopTyping();
+    }
+  };
 
   const handleSend = () => {
     sendMessage(inputText);
     setInputText('');
+    stopTyping();
   };
 
   return (
@@ -30,6 +61,8 @@ const ChatScreen = ({ route }) => {
           <Text style={styles.offlineText}>Connection lost. Reconnecting...</Text>
         </View>
       )}
+
+      <OnlineStatusBar onlineUsers={onlineUsers} currentUser={username} />
 
       <KeyboardAvoidingView
         style={styles.container}
@@ -47,7 +80,9 @@ const ChatScreen = ({ route }) => {
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         />
 
-        <MessageInput value={inputText} onChangeText={setInputText} onSend={handleSend} />
+        <TypingIndicator users={typingUsers} />
+
+        <MessageInput value={inputText} onChangeText={handleChangeText} onSend={handleSend} />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -3,8 +3,28 @@ import { View, Text, StyleSheet } from 'react-native';
 import { formatTime } from '../utils/formatTime';
 
 /**
+ * Status ticks for the sender's own messages:
+ *   sending ⋯ · sent ✓ · delivered ✓✓ (dim) · read ✓✓ (green) · failed
+ */
+const StatusTicks = ({ status }) => {
+  switch (status) {
+    case 'sending':
+      return <Text style={[styles.tick, styles.tickDim]}>⋯</Text>;
+    case 'sent':
+      return <Text style={[styles.tick, styles.tickDim]}>✓</Text>;
+    case 'delivered':
+      return <Text style={[styles.tick, styles.tickDim]}>✓✓</Text>;
+    case 'read':
+      return <Text style={[styles.tick, styles.tickRead]}>✓✓</Text>;
+    case 'failed':
+      return <Text style={[styles.tick, styles.tickFailed]}>Failed</Text>;
+    default:
+      return null;
+  }
+};
+
+/**
  * A single chat message bubble. Presentational only.
- * `isMe` decides alignment/colors; optimistic status is shown for own messages.
  */
 const MessageBubble = ({ message, isMe }) => {
   return (
@@ -18,12 +38,7 @@ const MessageBubble = ({ message, isMe }) => {
           <Text style={[styles.timestamp, isMe ? styles.myTimestamp : styles.otherTimestamp]}>
             {formatTime(message.createdAt)}
           </Text>
-          {isMe && message.status === 'sending' && (
-            <Text style={styles.metaStatus}>· Sending…</Text>
-          )}
-          {isMe && message.status === 'failed' && (
-            <Text style={styles.metaFailed}>· Failed</Text>
-          )}
+          {isMe && <StatusTicks status={message.status} />}
         </View>
       </View>
     </View>
@@ -90,14 +105,19 @@ const styles = StyleSheet.create({
   otherTimestamp: {
     color: '#999',
   },
-  metaStatus: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.7)',
+  tick: {
+    fontSize: 11,
     marginLeft: 4,
   },
-  metaFailed: {
+  tickDim: {
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  tickRead: {
+    color: '#B9F6CA',
+    fontWeight: '700',
+  },
+  tickFailed: {
     fontSize: 10,
     color: '#ffd6d6',
-    marginLeft: 4,
   },
 });

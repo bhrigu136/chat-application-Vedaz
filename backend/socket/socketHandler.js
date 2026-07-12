@@ -10,6 +10,14 @@ const registerSocketHandlers = (io) => {
       `User connected: ${username} (${socket.id}) | online: ${connectionManager.getOnlineCount()}`
     );
 
+    // Announce the updated online-users list to everyone.
+    io.emit(EVENTS.PRESENCE, { users: connectionManager.getOnlineUsers() });
+
+    // Let a client explicitly fetch the current online list (e.g. on screen mount).
+    socket.on(EVENTS.GET_PRESENCE, () => {
+      socket.emit(EVENTS.PRESENCE, { users: connectionManager.getOnlineUsers() });
+    });
+
     // Chat history is loaded by the client via GET /api/messages (REST).
     // Sockets carry only live message delivery.
     socket.on(EVENTS.MESSAGE, async (payload, ack) => {
@@ -48,11 +56,36 @@ const registerSocketHandlers = (io) => {
       }
     });
 
+    // Relay typing state to everyone else (server supplies who is typing).
+    socket.on(EVENTS.TYPING, () => {
+      socket.broadcast.emit(EVENTS.TYPING, { username });
+    });
+
+    socket.on(EVENTS.STOP_TYPING, () => {
+      socket.broadcast.emit(EVENTS.STOP_TYPING, { username });
+    });
+
+    // Relay delivery/read receipts back to the (other) message senders.
+    socket.on(EVENTS.MESSAGE_DELIVERED, (payload) => {
+      const messageId = payload?.messageId;
+      if (!messageId) return;
+      socket.broadcast.emit(EVENTS.MESSAGE_STATUS, { messageId, status: 'delivered' });
+    });
+
+    socket.on(EVENTS.MESSAGE_READ, (payload) => {
+      const messageId = payload?.messageId;
+      if (!messageId) return;
+      socket.broadcast.emit(EVENTS.MESSAGE_STATUS, { messageId, status: 'read' });
+    });
+
     socket.on(EVENTS.DISCONNECT, () => {
       connectionManager.removeConnection(socket.id);
       console.log(
         `User disconnected: ${username} (${socket.id}) | online: ${connectionManager.getOnlineCount()}`
       );
+
+      // Announce the updated online-users list to everyone remaining.
+      io.emit(EVENTS.PRESENCE, { users: connectionManager.getOnlineUsers() });
     });
   });
 };

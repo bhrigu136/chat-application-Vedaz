@@ -8,6 +8,8 @@ export const connectSocket = (username) => {
     return socket;
   }
 
+  console.log('[socket] Connecting to', SERVER_URL);
+
   socket = io(SERVER_URL, {
     auth: { username },
     transports: ['websocket', 'polling'],

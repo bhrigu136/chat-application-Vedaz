@@ -1,60 +1,31 @@
-const fs = require('fs').promises;
-const path = require('path');
+const crypto = require('crypto');
 
-const STORAGE_DIR = path.join(__dirname, '../storage');
-const FILE_PATH = path.join(STORAGE_DIR, 'messages.json');
-
-// Cache messages in memory for fast reads
-let messageCache = [];
+const messagesRepository = require('../storage/messagesRepository');
 
 /**
- * Initialize storage directory and load messages into cache
+ * Message service — the single persistence seam for the app.
+ * Both the REST controller and the socket handler go through here, so the
+ * underlying store (now Supabase/Postgres) can change without touching them.
  */
-const initStorage = async () => {
-  try {
-    // Ensure the storage directory exists
-    await fs.mkdir(STORAGE_DIR, { recursive: true });
 
-    // Read the messages file
-    const fileExists = await fs.access(FILE_PATH).then(() => true).catch(() => false);
-    
-    if (fileExists) {
-      const fileData = await fs.readFile(FILE_PATH, 'utf8');
-      messageCache = JSON.parse(fileData || '[]');
-      console.log(`Loaded ${messageCache.length} messages from storage.`);
-    } else {
-      // Create empty file
-      await fs.writeFile(FILE_PATH, JSON.stringify([]));
-      messageCache = [];
-      console.log('Created new messages.json file.');
-    }
-  } catch (error) {
-    console.error('Failed to initialize message storage:', error);
-    messageCache = [];
-  }
+/**
+ * Get the full chat history (oldest -> newest).
+ */
+const getMessages = async () => {
+  return messagesRepository.getAllMessages();
 };
 
 /**
- * Get all stored messages
+ * Create + persist a message. The server owns the id and timestamp:
+ * a UUID is generated here and created_at is set by the database.
+ * Returns the persisted message.
  */
-const getMessages = () => {
-  return messageCache;
+const saveMessage = async ({ text, sender }) => {
+  return messagesRepository.insertMessage({
+    id: crypto.randomUUID(),
+    sender: sender.trim(),
+    text: text.trim(),
+  });
 };
-
-/**
- * Add and persist a new message
- */
-const saveMessage = async (message) => {
-  try {
-    messageCache.push(message);
-    // Write cache to disk asynchronously (non-blocking)
-    await fs.writeFile(FILE_PATH, JSON.stringify(messageCache, null, 2));
-  } catch (error) {
-    console.error('Failed to save message to storage:', error);
-  }
-};
-
-// Initialize right away
-initStorage();
 
 module.exports = { getMessages, saveMessage };

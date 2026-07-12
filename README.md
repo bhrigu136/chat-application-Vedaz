@@ -1,276 +1,125 @@
-# Real-Time Chat Application
+# HiveFlow Chat
 
-A full-stack real-time chat app: **React Native (Expo)** frontend, **Node.js + Express + Socket.io** backend, **Supabase (PostgreSQL)** persistence, deployable to **Render** (backend) and as an **Android APK** (frontend).
+A real-time chat app I built as a take-home for a software developer role. The frontend is React Native (Expo), the backend is Node + Express with Socket.io doing the live work, and messages live in Postgres (hosted on Supabase). You can send and receive messages instantly, close the app, reopen it, and your history is still there.
 
-Messages deliver instantly over Socket.io, persist in Postgres, and reload after refresh via a REST API. Includes typing indicators, online presence, and read/delivered receipts.
+- **Live backend:** https://chat-application-vedaz.onrender.com — hit [`/api/messages`](https://chat-application-vedaz.onrender.com/api/messages) to see the stored messages. It's on Render's free tier, so the first request after it's been idle takes ~30–60s to wake up.
+- **Android APK:** [Google Drive](https://drive.google.com/file/d/1JHaY79fDvYTQYshfL_FVz2mhqL_GdnHN/view?usp=sharing) · [GitHub Releases](https://github.com/bhrigu136/chat-application-Vedaz/releases/latest). Open it on a phone and allow "install from unknown sources" if it asks.
 
----
+## What it does
 
-## Table of Contents
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
-- [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [Setup — Backend](#setup--backend)
-- [Setup — Frontend](#setup--frontend)
-- [Environment Variables](#environment-variables)
-- [REST API](#rest-api)
-- [Socket.io Events](#socketio-events)
-- [Deployment](#deployment)
-- [Building the Android APK](#building-the-android-apk)
-- [Design Decisions](#design-decisions)
-- [Assumptions & Limitations](#assumptions--limitations)
+At its core it's a shared room where messages appear instantly for everyone connected. On top of that I added the optional pieces from the brief:
 
----
+- Username login (no password — just pick a name)
+- Typing indicator
+- Online/offline presence (who's currently connected)
+- Read / delivered ticks on your own messages
+- Messages stored in a real database
+- Deployed backend with a live URL
 
-## Features
+## How it's built
 
-**Core**
-- ✅ Send & receive messages instantly (Socket.io)
-- ✅ Message history persists and reloads after refresh (REST + PostgreSQL)
-- ✅ Timestamps on every message
-- ✅ Graceful connect / disconnect handling
-- ✅ REST APIs: `POST /api/messages`, `GET /api/messages`
+The one design idea I kept coming back to: **REST for loading history, sockets for everything live.** When you open the chat it does a `GET /api/messages` to pull history from Postgres; after that, new messages, typing, presence, and receipts all travel over Socket.io. History is durable, and the socket only carries what's happening right now.
 
-**Bonus**
-- ✅ Dummy username login (no password)
-- ✅ Typing indicator
-- ✅ Online / offline user presence
-- ✅ Read / delivered status (message ticks)
-- ✅ Database persistence (Supabase PostgreSQL)
-- ✅ Render deployment + APK build support
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React Native (Expo SDK 54), React Navigation, socket.io-client |
-| Backend | Node.js, Express 5, Socket.io 4 |
-| Database | Supabase (PostgreSQL) via `pg` |
-| Hosting | Render (backend), EAS Build (Android APK) |
-
----
-
-## Architecture
-
-The app uses **REST for history** and **Socket.io for live updates** — a clean separation:
-
-```
-                        ┌─────────────────────────────┐
-   React Native (Expo)  │   Node.js + Express + Socket │      Supabase
-   ┌───────────────┐    │  ┌────────────┐ ┌──────────┐ │    ┌───────────┐
-   │  useChat      │─REST│  │ controllers│ │  socket  │ │    │ PostgreSQL│
-   │  useTyping    │◄───►│  │  → services → storage(pg)├─┼───►│ messages  │
-   │  usePresence  │socket  └────────────┘ └──────────┘ │    └───────────┘
-   └───────────────┘    └─────────────────────────────┘
-```
-
-- On chat open, the client `GET`s history from `/api/messages` (database is the source of truth).
-- New messages are sent over the socket; the server **persists** them (assigning a UUID id + `created_at`), then **broadcasts** to other clients and **acknowledges** the sender with the saved message.
-- Typing, presence, and read/delivered receipts are relayed over dedicated socket events.
-
----
-
-## Project Structure
+Sending a message goes like this: the client shows it immediately (optimistic), emits it over the socket, and the *server* assigns the real id (a UUID) and timestamp, saves it, and broadcasts it to everyone else. The sender gets an ack back with the saved message and swaps its temporary copy for the real one. That reconciliation matters — because the sender ends up holding the same id the server used, the read/delivered receipts can line up with the right message later.
 
 ```
 backend/
-├── app.js                  # Express app: middleware, routes, 404 + error handler
-├── server.js               # HTTP + Socket.io bootstrap; ensureSchema() then listen()
-├── controllers/            # messageController.js (thin handlers)
-├── routes/                 # messageRoutes.js  -> /api/messages
-├── middleware/             # validateMessage.js, errorHandler.js
-├── services/               # messageService.js (persistence seam)
-├── storage/                # db.js (pg Pool), messagesRepository.js, schema.sql
-├── socket/                 # socketHandler.js, events.js, connectionManager.js
-├── utils/                  # asyncHandler.js
-└── .env.example
+  app.js            Express app — middleware, routes, error handling
+  server.js         boots HTTP + Socket.io (after the DB schema is ready)
+  controllers/      request handlers
+  routes/           /api/messages
+  middleware/       body validation + a central error handler
+  services/         messageService — the single place that talks to storage
+  storage/          pg pool, messages repository, schema.sql
+  socket/           socket handlers, event-name constants, connection tracking
+  utils/            asyncHandler
 
-frontend/
-└── src/
-    ├── components/         # MessageBubble, MessageInput, TypingIndicator, OnlineStatusBar
-    ├── screens/            # LoginScreen, ChatScreen
-    ├── hooks/              # useChat, useTyping, usePresence
-    ├── services/           # socketService.js, api.js
-    ├── constants/          # config.js, events.js
-    ├── navigation/         # AppNavigator.js
-    └── utils/              # formatTime.js
+frontend/src/
+  screens/          Login, Chat
+  components/       MessageBubble, MessageInput, TypingIndicator, OnlineStatusBar
+  hooks/            useChat, useTyping, usePresence
+  services/         socket client, REST client
+  constants/        config, event names, theme
+  navigation/       stack navigator
+  utils/            time formatting
 ```
 
----
+## Running it locally
 
-## Prerequisites
-- Node.js 18+ and npm
-- A free [Supabase](https://supabase.com) project
-- Expo Go app (for device testing) and/or a web browser
-- For APK builds: an [Expo](https://expo.dev) account + EAS CLI
+You'll need Node 18+ and a free Supabase project.
 
----
+**Backend**
 
-## Setup — Backend
+1. Grab your Supabase connection string — use the **connection pooler** one (Project Settings → Database → Connection pooling → *Session mode*), not the direct `db.<ref>.supabase.co` string. There's a reason for that further down.
+2. `cd backend`, copy `.env.example` to `.env`, and paste the string into `DATABASE_URL`.
+3. `npm install` then `npm run dev`. You should see `Database schema ready.` followed by `Server is running…`. The `messages` table is created automatically on first boot.
 
-1. **Create a Supabase project** and get the **connection pooler** string:
-   - Supabase dashboard → **Project Settings → Database → Connection string → "Connection pooling" (Session mode)**.
-   - It looks like: `postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`
-   - ⚠️ Use the **pooler** string, not the direct `db.<ref>.supabase.co` one (see [Design Decisions](#design-decisions)).
-   - Under **Network Access**, allow `0.0.0.0/0` (Render's free tier has no static outbound IP).
+**Frontend**
 
-2. **Configure environment:**
-   ```bash
-   cd backend
-   cp .env.example .env
-   # edit .env and set DATABASE_URL to your Supabase pooler string
-   ```
+1. `cd frontend && npm install`.
+2. Point the app at your backend. It defaults to the deployed URL; for local testing set `EXPO_PUBLIC_SERVER_URL` in `frontend/.env` — `http://localhost:3000` for web, `http://<your-LAN-IP>:3000` for a real phone (same Wi-Fi), or `http://10.0.2.2:3000` for the Android emulator.
+3. `npx expo start --clear`, then press `w` for web or scan the QR code with Expo Go. The console prints `[socket] Connecting to <url>` so you can confirm where it's pointing.
 
-3. **Install & run:**
-   ```bash
-   npm install
-   npm run dev      # nodemon (or: npm start)
-   ```
-   On startup you should see `Database schema ready.` then `Server is running on http://0.0.0.0:3000`. The `messages` table is created automatically if it doesn't exist.
+To actually see the real-time features you need two clients — open the app twice with different usernames and chat between them.
 
----
+## Environment variables
 
-## Setup — Frontend
+**Backend** (`backend/.env`)
 
-1. **Install:**
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-2. **Point the app at your backend.** By default it uses the deployed Render URL. For local testing, either set `EXPO_PUBLIC_SERVER_URL` in `frontend/.env`, or edit the fallback in `src/constants/config.js`:
-   - Web / iOS Simulator: `http://localhost:3000`
-   - Android Emulator: `http://10.0.2.2:3000`
-   - Physical device (Expo Go): `http://<your-PC-LAN-IP>:3000` (same Wi-Fi)
-
-3. **Run:**
-   ```bash
-   npx expo start --clear
-   ```
-   Press `w` for web, or scan the QR code with Expo Go. The console logs `[socket] Connecting to <url>` so you can confirm the active endpoint.
-
-4. **Test real-time features:** open **two clients** with different usernames (e.g. a web tab as *Alice* + phone as *Bob*) and chat between them.
-
----
-
-## Environment Variables
-
-**Backend** (`backend/.env`):
-
-| Variable | Required | Description |
+| Variable | Required | Notes |
 |---|---|---|
-| `DATABASE_URL` | Yes | Supabase **pooler** connection string. |
-| `PORT` | No | Server port (default `3000`). Render sets this automatically. |
-| `DB_SSL` | No | Set to `false` only for a local Postgres without SSL. Leave unset for Supabase (SSL on). |
+| `DATABASE_URL` | yes | Supabase pooler connection string |
+| `PORT` | no | defaults to 3000; Render sets this itself |
+| `DB_SSL` | no | set to `false` only for a local Postgres without SSL — leave it unset for Supabase |
 
-**Frontend** (`frontend/.env`, optional):
+**Frontend** (`frontend/.env`, optional)
 
-| Variable | Required | Description |
-|---|---|---|
-| `EXPO_PUBLIC_SERVER_URL` | No | Overrides the backend URL. Defaults to the value in `src/constants/config.js`. |
+`EXPO_PUBLIC_SERVER_URL` overrides the backend URL baked into `config.js`.
 
----
+## The API
 
-## REST API
+Two REST endpoints, both under `/api/messages`.
 
-Base URL: `<server>/api`
+`GET /api/messages` returns the full history, oldest first:
 
-### `GET /api/messages`
-Returns the full chat history, oldest first.
 ```json
 [
-  { "id": "uuid", "sender": "Alice", "text": "Hello", "createdAt": "2026-07-12T08:26:48.789Z" }
+  { "id": "…", "sender": "Alice", "text": "Hello", "createdAt": "2026-07-12T08:26:48.789Z" }
 ]
 ```
 
-### `POST /api/messages`
-Creates a message. The server assigns `id` and `createdAt`.
-```json
-// request
-{ "text": "Hello", "sender": "Alice" }
-// 201 response
-{ "id": "uuid", "sender": "Alice", "text": "Hello", "createdAt": "2026-07-12T08:26:48.789Z" }
-```
-Invalid input (missing/empty `text` or `sender`) → `400` with `{ "error": "..." }`.
+`POST /api/messages` sends a message. Body is `{ "text": "…", "sender": "…" }`; the server fills in the id and timestamp and returns the saved message with a `201`. Missing or empty `text`/`sender` gets a `400`.
 
----
+## Socket events
 
-## Socket.io Events
+The client connects with the username in the auth handshake, and the server reads the sender from there rather than trusting the payload.
 
-Auth: the client connects with `auth: { username }`; the server derives the sender from this handshake.
+- `message` — send (with an ack) / receive a message
+- `typing` / `stop_typing` — typing indicator
+- `presence` / `get_presence` — who's online
+- `message_delivered` / `message_read` — receipts sent by a recipient
+- `message_status` — the relayed receipt back to the original sender
+- `message_error` — fallback if a send fails
 
-| Event | Direction | Payload | Purpose |
-|---|---|---|---|
-| `message` | client → server (with ack) | `{ text, tempId }` | Send a message. Server persists, broadcasts to others, and acks the sender with the saved message. |
-| `message` | server → client | `{ id, sender, text, createdAt }` | A new message from another user. |
-| `typing` / `stop_typing` | client ↔ server | `{ username }` (server→client) | Typing indicator relay. |
-| `presence` | server → client | `{ users: [...] }` | Current online usernames (sent on connect/disconnect). |
-| `get_presence` | client → server | — | Request the current online list (on screen mount). |
-| `message_delivered` / `message_read` | client → server | `{ messageId }` | Delivery / read receipts from a recipient. |
-| `message_status` | server → client | `{ messageId, status }` | Relayed receipt to the original sender. |
-| `message_error` | server → client | `{ error }` | Fallback error when a send fails without an ack. |
+## Deploying
 
----
+The backend runs on Render. There's a `render.yaml` in the repo, or you can set it up by hand: root directory `backend`, build command `npm install`, start command `node server.js`, and one environment variable — `DATABASE_URL` (the pooler string). Render provides `PORT` on its own.
 
-## Deployment
+The APK is an EAS build: `cd frontend`, `eas login`, then `eas build -p android --profile preview`. That runs in Expo's cloud and gives you a download link. Just make sure the frontend's server URL points at the deployed backend before you build.
 
-### Backend → Render
+## Why a few things are the way they are
 
-A `render.yaml` blueprint is included. Or configure manually:
+Some decisions that weren't obvious:
 
-| Setting | Value |
-|---|---|
-| Root Directory | `backend` |
-| Build Command | `npm install` |
-| Start Command | `node server.js` |
-| Environment | `DATABASE_URL` = your Supabase **pooler** string |
+- **Supabase, but only as Postgres.** The brief rules out Firebase-style services for the real-time part, so I hand-wrote the Socket.io layer and used Supabase purely as a database — plain `pg` driver, my own SQL. I deliberately didn't touch Supabase's auto-generated APIs or its realtime engine, since that would've replaced the exact thing being evaluated.
+- **The pooler string, not the direct one.** Supabase's direct host is IPv6-only now, and Render's free tier is IPv4, so the direct connection string just won't resolve there. The pooler (Supavisor) works over IPv4. This took me a while to track down, so it's worth calling out.
+- **The server owns ids and timestamps.** Generating them server-side (a UUID plus a `timestamptz` column) keeps message ordering consistent across clients and is what lets the read/delivered receipts match the correct message.
+- **One storage seam.** Everything that persists goes through `messageService`, so switching the datastore later would be a single-file change rather than a rewrite.
 
-Render provides `PORT` automatically (the server reads `process.env.PORT`). After deploy, verify `GET https://<your-service>.onrender.com/api/messages` returns JSON.
+## Assumptions and limitations
 
-> Free-tier note: Render spins the service down when idle; the first request after idle has a cold-start delay.
-
-### Frontend
-Set the frontend's `SERVER_URL` (via `EXPO_PUBLIC_SERVER_URL` or `config.js`) to your Render URL before building.
-
----
-
-## Building the Android APK
-
-Uses EAS Build (cloud). The `preview` profile in `eas.json` produces an installable APK.
-
-```bash
-npm install -g eas-cli      # or use npx
-cd frontend
-eas login                   # your Expo account
-eas build -p android --profile preview
-```
-When the cloud build finishes, download the APK from the printed link (or the Expo dashboard).
-
-> If the `projectId` in `app.json` isn't yours, run `eas init` first to create your own.
-> Make sure `SERVER_URL` points at your deployed Render backend so the APK talks to production.
-
----
-
-## Design Decisions
-
-- **Supabase used purely as PostgreSQL (via `pg`), not `@supabase/supabase-js`.** The assignment requires hand-built REST + Socket.io; using Supabase's auto-REST/Realtime would replace exactly what's being evaluated. The `pg` driver is leaner and demonstrates real SQL work.
-- **Connection *pooler* string, not the direct one.** Supabase's direct `db.<ref>.supabase.co` host is IPv6-only; Render's free tier (and many local networks) are IPv4-only, so the direct host fails to resolve. The pooler (Supavisor) is IPv4-compatible.
-- **REST for history + Socket.io for live delivery.** History is durable and fetched once via `GET /api/messages`; the socket handles only real-time deltas. This satisfies "show previous messages after refresh" through the REST layer.
-- **Server-authoritative id + timestamp.** The server generates a UUID and `created_at` (`timestamptz`) so ordering is reliable and consistent across clients. The client uses optimistic UI and reconciles to the server's message via the socket **ack** — which is also what makes read/delivered receipts match the right message.
-- **Layered backend** (`controllers → services → storage`) with a single persistence seam (`messageService`), so the datastore can change without touching routes or sockets. Schema is created on boot (`ensureSchema`), which also guarantees the store is ready before the server listens.
-- **Reusable frontend** via hooks (`useChat`, `useTyping`, `usePresence`) and presentational components, keeping `ChatScreen` thin.
-
----
-
-## Assumptions & Limitations
-
-- **Dummy authentication:** login is a username only (no password/verification); usernames are not enforced unique.
-- **Single shared chat room:** all connected users are in one broadcast room (matches the original brief), not per-conversation 1:1 threads.
-- **Read/delivered status is transient:** receipts are relayed over sockets and held in UI state, not persisted. They reset on refresh and require the recipient to be online; `read` additionally requires the recipient's chat screen to be focused and the app foregrounded.
-- **Supabase free tier:** projects pause after ~7 days of inactivity (restore from the dashboard). Network access is opened to `0.0.0.0/0` for hosting compatibility — acceptable for an assignment, but you'd restrict this in production.
-- **Render free tier:** the backend spins down when idle, causing occasional cold starts.
-- **CORS** is open (`origin: '*'`) — appropriate for a public demo API consumed by the mobile app.
+- Login is just a username — no auth, no passwords, and names aren't unique. That's the dummy login the brief asked for.
+- It's a single shared room, not per-person conversations.
+- Read/delivered status is live-only. It's relayed over sockets and held in memory, so it resets on refresh and only works while both people are connected — and "read" additionally needs the other person to actually have the chat open in the foreground. Persisting it would've added more schema and complexity than the feature was worth here.
+- The hosted pieces are on free tiers: Render cold-starts after being idle, and a Supabase free project pauses after roughly a week of no activity.
+- CORS is wide open, which is fine for a demo API consumed by the app but something I'd tighten for anything real.

@@ -1,0 +1,6 @@
+# Build artifacts — distribute via GitHub Releases or Google Drive, NOT git history
+*.apk
+*.aab
+
+# Secrets
+.env

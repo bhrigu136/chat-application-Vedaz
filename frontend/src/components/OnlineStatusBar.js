@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { colors } from '../constants/theme';
 
 /**
  * Compact bar showing who is currently online. The current user is shown as
@@ -7,9 +8,7 @@ import { View, Text, StyleSheet } from 'react-native';
  */
 const OnlineStatusBar = ({ onlineUsers, currentUser }) => {
   const count = onlineUsers.length;
-  const names = onlineUsers
-    .map((u) => (u === currentUser ? 'You' : u))
-    .join(', ');
+  const names = onlineUsers.map((u) => (u === currentUser ? 'You' : u)).join(', ');
 
   return (
     <View style={styles.bar}>
@@ -28,10 +27,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 6,
-    backgroundColor: '#eef3f8',
+    paddingVertical: 7,
+    backgroundColor: '#F3F0FB',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#E9E4F7',
   },
   dot: {
     width: 8,
@@ -40,14 +39,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   dotOnline: {
-    backgroundColor: '#3ec46d',
+    backgroundColor: colors.online,
   },
   dotOffline: {
-    backgroundColor: '#bbb',
+    backgroundColor: '#BBB',
   },
   text: {
     fontSize: 12,
-    color: '#555',
+    color: '#5B5670',
     flexShrink: 1,
   },
 });

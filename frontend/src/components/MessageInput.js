@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, gradients } from '../constants/theme';
 
 /**
  * Message composer row. Controlled input: parent owns the text value.
- * Calls onSend() when the send button is pressed or the keyboard "send" key
- * is used (ignored when the trimmed value is empty).
+ * Calls onSend() on the send button or the keyboard "send" key (ignored when empty).
  */
 const MessageInput = ({ value, onChangeText, onSend }) => {
   const isEmpty = !value.trim();
@@ -18,7 +19,7 @@ const MessageInput = ({ value, onChangeText, onSend }) => {
       <TextInput
         style={styles.input}
         placeholder="Type a message..."
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.muted}
         value={value}
         onChangeText={onChangeText}
         multiline={false}
@@ -26,12 +27,17 @@ const MessageInput = ({ value, onChangeText, onSend }) => {
         onSubmitEditing={handleSend}
         blurOnSubmit={false}
       />
-      <TouchableOpacity
-        style={[styles.sendButton, isEmpty && styles.disabledSendButton]}
-        onPress={handleSend}
-        disabled={isEmpty}
-      >
-        <Text style={styles.sendButtonText}>Send</Text>
+      <TouchableOpacity onPress={handleSend} disabled={isEmpty} activeOpacity={0.85}>
+        <LinearGradient
+          colors={isEmpty ? [colors.inputBorder, colors.inputBorder] : gradients.button}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sendButton}
+        >
+          <Text style={[styles.sendButtonText, isEmpty && styles.sendButtonTextDisabled]}>
+            Send
+          </Text>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
@@ -46,34 +52,32 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: colors.receivedBorder,
     alignItems: 'center',
   },
   input: {
     flex: 1,
-    height: 40,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 20,
+    height: 42,
+    backgroundColor: colors.inputBg,
+    borderRadius: 21,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: '#333',
+    color: colors.textDark,
     marginRight: 10,
   },
   sendButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#4A90D9',
-    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  disabledSendButton: {
-    backgroundColor: '#A2C6EC',
-    opacity: 0.7,
+  sendButtonTextDisabled: {
+    color: colors.muted,
   },
 });

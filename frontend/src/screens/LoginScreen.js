@@ -7,8 +7,11 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { connectSocket } from '../services/socketService';
+import { colors, gradients } from '../constants/theme';
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
@@ -41,7 +44,6 @@ const LoginScreen = ({ navigation }) => {
       console.error('Socket connection error:', error);
     };
 
-    // If socket is already connected (e.g. returning to screen)
     if (socket.connected) {
       onConnect();
       return;
@@ -50,7 +52,6 @@ const LoginScreen = ({ navigation }) => {
     socket.once('connect', onConnect);
     socket.once('connect_error', onError);
 
-    // Timeout fallback if connection hangs
     setTimeout(() => {
       if (!socket.connected) {
         socket.off('connect', onConnect);
@@ -61,16 +62,28 @@ const LoginScreen = ({ navigation }) => {
     }, 5000);
   };
 
+  const disabled = !username.trim() || loading;
+
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={gradients.brand}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
       <View style={styles.content}>
+        <Image
+          source={require('../../assets/hiveflow-chat-logo.png')}
+          style={styles.logo}
+          resizeMode="cover"
+        />
         <Text style={styles.title}>HiveFlow Chat</Text>
-        <Text style={styles.subtitle}>Enter your username to start chatting</Text>
+        <Text style={styles.subtitle}>Enter a username to start chatting</Text>
 
         <TextInput
-          style={[styles.input, loading && styles.disabledInput]}
+          style={styles.input}
           placeholder="Username"
-          placeholderTextColor="#999"
+          placeholderTextColor="#9AA0AC"
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
@@ -82,26 +95,26 @@ const LoginScreen = ({ navigation }) => {
           editable={!loading}
         />
 
-        <TouchableOpacity 
-          style={[styles.button, (!username.trim() || loading) && styles.disabledButton]} 
+        <TouchableOpacity
+          style={[styles.button, disabled && styles.buttonDisabled]}
           onPress={handleLogin}
-          disabled={!username.trim() || loading}
+          disabled={disabled}
+          activeOpacity={0.85}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={colors.accent} size="small" />
           ) : (
             <Text style={styles.buttonText}>Login</Text>
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
     justifyContent: 'center',
   },
   content: {
@@ -109,50 +122,55 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingVertical: 24,
   },
+  logo: {
+    width: 104,
+    height: 104,
+    borderRadius: 26,
+    marginBottom: 22,
+  },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#fff',
     marginBottom: 8,
+    letterSpacing: 0.3,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.9)',
     marginBottom: 40,
     textAlign: 'center',
   },
   input: {
     width: '100%',
-    height: 50,
+    height: 52,
     backgroundColor: '#fff',
-    borderRadius: 10,
+    borderRadius: 14,
     paddingHorizontal: 16,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 20,
-    color: '#333',
+    marginBottom: 18,
+    color: colors.textDark,
   },
   button: {
     width: '100%',
-    height: 50,
-    backgroundColor: '#4A90D9',
-    borderRadius: 10,
+    height: 52,
+    backgroundColor: '#fff',
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.accent,
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  disabledButton: {
-    backgroundColor: '#A2C6EC',
-    opacity: 0.8,
-  },
-  disabledInput: {
-    backgroundColor: '#eaeaea',
-    color: '#888',
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });
 

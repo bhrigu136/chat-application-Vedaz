@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
+import { colors } from '../constants/theme';
 import { useChat } from '../hooks/useChat';
 import { useTyping } from '../hooks/useTyping';
 import { usePresence } from '../hooks/usePresence';
@@ -122,7 +123,7 @@ const ChatScreen = ({ route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.screenBg,
   },
   container: {
     flex: 1,
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   offlineBanner: {
-    backgroundColor: '#ff4d4d',
+    backgroundColor: colors.offline,
     paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',

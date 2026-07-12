@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { colors } from '../constants/theme';
 
 /**
  * Shows who is currently typing. Renders nothing when no one is typing.
@@ -33,6 +34,6 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 12,
     fontStyle: 'italic',
-    color: '#888',
+    color: colors.accent,
   },
 });

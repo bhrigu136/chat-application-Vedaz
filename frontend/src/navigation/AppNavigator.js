@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/LoginScreen';
 import ChatScreen from '../screens/ChatScreen';
+import { colors } from '../constants/theme';
 
 const Stack = createNativeStackNavigator();
 
@@ -10,9 +11,9 @@ const AppNavigator = () => {
     <Stack.Navigator
       initialRouteName="Login"
       screenOptions={{
-        headerStyle: { backgroundColor: '#4A90D9' },
+        headerStyle: { backgroundColor: colors.header },
         headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '600' },
+        headerTitleStyle: { fontWeight: '700' },
       }}
     >
       <Stack.Screen
@@ -24,7 +25,7 @@ const AppNavigator = () => {
         name="Chat"
         component={ChatScreen}
         options={({ route }) => ({
-          title: `Chat - ${route.params.username}`,
+          title: `HiveFlow · ${route.params.username}`,
           headerBackVisible: true,
         })}
       />

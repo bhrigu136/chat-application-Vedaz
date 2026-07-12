@@ -6,6 +6,6 @@
 //   Android Emulator:    http://10.0.2.2:3000
 //   Physical device:     http://<your-PC-LAN-IP>:3000   (both on same Wi-Fi)
 export const SERVER_URL =
-  process.env.EXPO_PUBLIC_SERVER_URL || "https://chat-application-backend-aieu.onrender.com";
+  process.env.EXPO_PUBLIC_SERVER_URL || "https://chat-application-vedaz.onrender.com";
 
 

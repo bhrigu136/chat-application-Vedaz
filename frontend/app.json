@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Chat Application",
+    "slug": "chat-application",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "package": "com.tamanna.chatapplication"
+      },
+      "package": "com.bhrigu136.chatapplication"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "14b5fa8f-9429-4a87-96ec-f821a1899bd8"
+      }
+    }
+  }
+}

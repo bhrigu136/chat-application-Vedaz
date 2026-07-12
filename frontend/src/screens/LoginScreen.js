@@ -64,7 +64,7 @@ const LoginScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Chat App</Text>
+        <Text style={styles.title}>HiveFlow Chat</Text>
         <Text style={styles.subtitle}>Enter your username to start chatting</Text>
 
         <TextInput
